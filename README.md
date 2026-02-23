@@ -1,3 +1,12 @@
+---
+title: Hand to Excalidraw
+emoji: ✏️
+colorFrom: purple
+colorTo: blue
+sdk: docker
+app_port: 7860
+---
+
 # ✏️ Hand to Excalidraw
 
 Convert hand-drawn flowcharts into editable [Excalidraw](https://excalidraw.com) diagrams using **Qwen2.5-VL** AI vision model via HuggingFace Inference API.
