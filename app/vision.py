@@ -1,6 +1,6 @@
 """
 Vision module: Uses Qwen2.5-VL via HuggingFace Inference API
-to extract structured flowchart data from hand-drawn images.
+to extract structured flowchart data from handwritten images.
 """
 
 import base64
@@ -25,8 +25,8 @@ load_dotenv()
 # QWEN_MODEL = "Qwen/Qwen2.5-VL-7B-Instruct"
 QWEN_MODEL = "Qwen/Qwen3-VL-235B-A22B-Instruct"
 
-SYSTEM_PROMPT = """You are an expert at analyzing hand-drawn flowcharts and diagrams. 
-Given an image of a hand-drawn flowchart, you must extract ALL shapes, text, and connections into a precise structured JSON format.
+SYSTEM_PROMPT = """You are an expert at analyzing handwritten flowcharts and diagrams. 
+Given an image of a handwritten flowchart, you must extract ALL shapes, text, and connections into a precise structured JSON format.
 
 Rules:
 1. Identify every shape: rectangles, rounded rectangles, ellipses/ovals, diamonds, squares.
@@ -195,7 +195,7 @@ def _validate_flowchart_data(data: dict) -> dict:
 
 def extract_flowchart_from_image(image_path: str) -> dict:
     """
-    Extract flowchart structure from a hand-drawn image file.
+    Extract flowchart structure from a handwritten image file.
     Returns validated dict with 'nodes' and 'arrows'.
     """
     token = os.getenv("HF_API_TOKEN")
@@ -215,7 +215,7 @@ def extract_flowchart_from_image(image_path: str) -> dict:
                     {"type": "image_url", "image_url": {"url": data_url}},
                     {
                         "type": "text",
-                        "text": "Analyze this hand-drawn flowchart and extract all shapes, text, and connections into the JSON format specified.",
+                        "text": "Analyze this handwritten flowchart and extract all shapes, text, and connections into the JSON format specified.",
                     },
                 ],
             },
@@ -251,7 +251,7 @@ def extract_flowchart_from_bytes(image_bytes: bytes, content_type: str = "image/
                     {"type": "image_url", "image_url": {"url": data_url}},
                     {
                         "type": "text",
-                        "text": "Analyze this hand-drawn flowchart and extract all shapes, text, and connections into the JSON format specified.",
+                        "text": "Analyze this handwritten flowchart and extract all shapes, text, and connections into the JSON format specified.",
                     },
                 ],
             },

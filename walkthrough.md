@@ -2,7 +2,7 @@
 
 ## What Was Built
 
-A full-stack app that converts photos of hand-drawn flowcharts into `.excalidraw` files using **Qwen2.5-VL** AI.
+A full-stack app that converts photos of handwritten flowcharts into `.excalidraw` files using **Qwen2.5-VL** AI.
 
 ```mermaid
 graph LR

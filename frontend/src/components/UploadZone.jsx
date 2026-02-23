@@ -60,7 +60,7 @@ export default function UploadZone({ onFileSelected }) {
         >
             <span className="upload-icon">📸</span>
             <h2 className="upload-title">
-                {dragging ? 'Drop your flowchart here!' : 'Upload your hand-drawn flowchart'}
+                {dragging ? 'Drop your flowchart here!' : 'Upload your handwritten flowchart'}
             </h2>
             <p className="upload-description">
                 Drag & drop a photo of your flowchart, or click to browse

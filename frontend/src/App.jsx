@@ -118,7 +118,7 @@ export default function App() {
         <div className="app-logo">✏️</div>
         <h1 className="app-title">Hand2Excal</h1>
         <p className="app-subtitle">
-          Transform your hand-drawn flowcharts into editable Excalidraw
+          Transform your handwritten flowcharts into editable Excalidraw
           diagrams powered by AI
         </p>
       </header>

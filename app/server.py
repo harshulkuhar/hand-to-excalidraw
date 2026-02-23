@@ -16,7 +16,7 @@ from .excalidraw_builder import build_excalidraw
 
 app = FastAPI(
     title="Hand2Excal",
-    description="Convert hand-drawn flowcharts to Excalidraw files",
+    description="Convert handwritten flowcharts to Excalidraw files",
     version="0.1.0",
 )
 
@@ -36,7 +36,7 @@ app.add_middleware(
 @app.post("/api/convert")
 async def convert_image(file: UploadFile = File(...)):
     """
-    Upload a hand-drawn flowchart image, returns Excalidraw JSON.
+    Upload a handwritten flowchart image, returns Excalidraw JSON.
     """
     # Validate file type
     allowed_types = {

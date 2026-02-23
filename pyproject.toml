@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hand2excal"
 version = "0.1.0"
-description = "Convert hand-drawn flowcharts to Excalidraw files using Qwen2.5-VL"
+description = "Convert handwritten flowcharts to Excalidraw files using Qwen2.5-VL"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.115.0",
