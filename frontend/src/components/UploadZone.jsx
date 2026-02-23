@@ -65,7 +65,7 @@ export default function UploadZone({ onFileSelected }) {
             <p className="upload-description">
                 Drag & drop a photo of your flowchart, or click to browse
             </p>
-            <button className="upload-btn" onClick={(e) => e.stopPropagation()}>
+            <button className="upload-btn" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}>
                 ✨ Choose Image
             </button>
             <p className="upload-formats">

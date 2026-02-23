@@ -62,9 +62,13 @@ async def convert_image(file: UploadFile = File(...)):
         # Step 1: Extract flowchart data using Qwen
         log.info("🤖 Sending to Qwen for analysis...")
         flowchart_data = extract_flowchart_from_bytes(image_bytes, content_type)
-        nodes = len(flowchart_data.get("nodes", []))
-        arrows = len(flowchart_data.get("arrows", []))
-        log.info(f"📐 Extracted: {nodes} shapes, {arrows} connections")
+        nodes = flowchart_data.get("nodes", [])
+        arrows = flowchart_data.get("arrows", [])
+        log.info(f"📐 Extracted: {len(nodes)} shapes, {len(arrows)} connections")
+        for n in nodes:
+            log.info(f"   🔷 {n.get('id')}: {n.get('type')} \"{n.get('label')}\" at ({n.get('x')},{n.get('y')})")
+        for a in arrows:
+            log.info(f"   ➡️  {a.get('from_id')} → {a.get('to_id')} \"{a.get('label', '')}\"")
 
         # Step 2: Build Excalidraw JSON
         log.info("🔧 Building Excalidraw file...")
@@ -75,8 +79,8 @@ async def convert_image(file: UploadFile = File(...)):
             "success": True,
             "excalidraw": excalidraw_json,
             "metadata": {
-                "nodes_count": nodes,
-                "arrows_count": arrows,
+                "nodes_count": len(nodes),
+                "arrows_count": len(arrows),
             },
         })
 

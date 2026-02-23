@@ -161,6 +161,59 @@ def _create_text(
     return element
 
 
+def _edge_point(element: dict, dx: float, dy: float) -> tuple[float, float]:
+    """
+    Calculate where a ray from the center of a shape exits its boundary.
+    (dx, dy) is the direction vector pointing outward.
+    Returns the (x, y) point on the shape edge.
+    """
+    cx = element["x"] + element["width"] / 2
+    cy = element["y"] + element["height"] / 2
+    w = element["width"]
+    h = element["height"]
+    shape_type = element["type"]
+
+    if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+        return cx, cy
+
+    if shape_type == "ellipse":
+        # Ellipse: parametric intersection
+        a = w / 2
+        b = h / 2
+        denom = math.sqrt((dx / a) ** 2 + (dy / b) ** 2)
+        if denom < 1e-9:
+            return cx, cy
+        t = 1.0 / denom
+        return cx + dx * t, cy + dy * t
+
+    elif shape_type == "diamond":
+        # Diamond: intersection with 4 diagonal edges
+        a = w / 2
+        b = h / 2
+        # The diamond has vertices at (cx±a, cy) and (cx, cy±b)
+        # Compute intersection with t * (dx, dy) against each edge
+        t = float("inf")
+        if abs(dx) > 1e-9:
+            t = min(t, abs(a / dx) * (1.0 / (abs(dx) / a + abs(dy) / b)))
+        if abs(dy) > 1e-9:
+            t = min(t, abs(b / dy) * (1.0 / (abs(dx) / a + abs(dy) / b)))
+        # Simpler formula: for a diamond, t = 1 / (|dx|/a + |dy|/b)
+        denom = abs(dx) / a + abs(dy) / b
+        if denom < 1e-9:
+            return cx, cy
+        t = 1.0 / denom
+        return cx + dx * t, cy + dy * t
+
+    else:
+        # Rectangle: ray-box intersection
+        t = float("inf")
+        if abs(dx) > 1e-9:
+            t = min(t, (w / 2) / abs(dx))
+        if abs(dy) > 1e-9:
+            t = min(t, (h / 2) / abs(dy))
+        return cx + dx * t, cy + dy * t
+
+
 def _create_arrow(
     from_element: dict,
     to_element: dict,
@@ -169,53 +222,39 @@ def _create_arrow(
 ) -> tuple[dict, dict | None]:
     """
     Create an arrow element connecting two shapes.
+    Calculates proper edge intersection points so arrows never go through shapes.
     Returns (arrow_element, optional_label_text_element).
     """
-    GAP = 14  # spacing between arrow endpoints and shape edges
+    GAP = 8  # visual gap between arrow tip and shape edge
 
-    # Calculate connection points (center of each shape)
+    # Direction vector from source center to target center
     from_cx = from_element["x"] + from_element["width"] / 2
     from_cy = from_element["y"] + from_element["height"] / 2
     to_cx = to_element["x"] + to_element["width"] / 2
     to_cy = to_element["y"] + to_element["height"] / 2
 
-    # Determine edge connection points based on relative positions
     dx = to_cx - from_cx
     dy = to_cy - from_cy
+    length = math.sqrt(dx * dx + dy * dy)
+    if length < 1e-9:
+        dx, dy = 0, 1
+        length = 1
 
-    # Start point: offset OUTSIDE the source shape edge
-    if abs(dx) > abs(dy):
-        if dx > 0:
-            start_x = from_element["x"] + from_element["width"] + GAP
-            start_y = from_cy
-        else:
-            start_x = from_element["x"] - GAP
-            start_y = from_cy
-    else:
-        if dy > 0:
-            start_x = from_cx
-            start_y = from_element["y"] + from_element["height"] + GAP
-        else:
-            start_x = from_cx
-            start_y = from_element["y"] - GAP
+    # Normalize direction
+    ndx = dx / length
+    ndy = dy / length
 
-    # End point: offset OUTSIDE the target shape edge
-    if abs(dx) > abs(dy):
-        if dx > 0:
-            end_x = to_element["x"] - GAP
-            end_y = to_cy
-        else:
-            end_x = to_element["x"] + to_element["width"] + GAP
-            end_y = to_cy
-    else:
-        if dy > 0:
-            end_x = to_cx
-            end_y = to_element["y"] - GAP
-        else:
-            end_x = to_cx
-            end_y = to_element["y"] + to_element["height"] + GAP
+    # Find where the line exits each shape boundary
+    start_x, start_y = _edge_point(from_element, dx, dy)
+    end_x, end_y = _edge_point(to_element, -dx, -dy)
 
-    # Arrow points are relative to the arrow's x, y
+    # Add gap offset (push start outward, push end outward)
+    start_x += ndx * GAP
+    start_y += ndy * GAP
+    end_x -= ndx * GAP
+    end_y -= ndy * GAP
+
+    # Arrow points are relative to arrow's x, y position
     arrow_x = start_x
     arrow_y = start_y
     rel_end_x = end_x - start_x
@@ -235,7 +274,7 @@ def _create_arrow(
     arrow["endArrowhead"] = "arrow"
     arrow["roundness"] = {"type": 2}
 
-    # Bindings: connect arrow to shapes
+    # Bindings
     arrow["startBinding"] = {
         "elementId": from_element["id"],
         "focus": 0,
@@ -270,6 +309,80 @@ def _create_arrow(
     return arrow, label_element
 
 
+def _enforce_spacing(flowchart_data: dict, min_gap: int = 100) -> dict:
+    """
+    Post-process node positions:
+    1. Scale all positions by 2x to spread nodes out
+    2. Enforce minimum gap between all node pairs
+    """
+    nodes = flowchart_data.get("nodes", [])
+    if len(nodes) < 2:
+        return flowchart_data
+
+    # --- Step 1: Scale positions by 2x from the centroid ---
+    cx = sum(n["x"] + n["width"] / 2 for n in nodes) / len(nodes)
+    cy = sum(n["y"] + n["height"] / 2 for n in nodes) / len(nodes)
+    scale = 2.0
+    for n in nodes:
+        ncx = n["x"] + n["width"] / 2
+        ncy = n["y"] + n["height"] / 2
+        new_cx = cx + (ncx - cx) * scale
+        new_cy = cy + (ncy - cy) * scale
+        n["x"] = new_cx - n["width"] / 2
+        n["y"] = new_cy - n["height"] / 2
+
+    # --- Step 2: Push overlapping nodes apart ---
+    for _ in range(15):
+        moved = False
+        for i in range(len(nodes)):
+            for j in range(i + 1, len(nodes)):
+                a = nodes[i]
+                b = nodes[j]
+
+                a_cx = a["x"] + a["width"] / 2
+                a_cy = a["y"] + a["height"] / 2
+                b_cx = b["x"] + b["width"] / 2
+                b_cy = b["y"] + b["height"] / 2
+
+                dx = b_cx - a_cx
+                dy = b_cy - a_cy
+
+                # Required minimum distance on each axis
+                min_dx = (a["width"] + b["width"]) / 2 + min_gap
+                min_dy = (a["height"] + b["height"]) / 2 + min_gap
+
+                # Check if overlapping in both axes
+                if abs(dx) < min_dx and abs(dy) < min_dy:
+                    if abs(dx) < 1 and abs(dy) < 1:
+                        dy = 1
+
+                    # Push along the dominant axis
+                    if abs(dy) >= abs(dx):
+                        needed = min_dy
+                        shortfall = needed - abs(dy)
+                        if shortfall > 0:
+                            push = shortfall / 2 + 5
+                            sign = 1 if dy >= 0 else -1
+                            b["y"] += push * sign
+                            a["y"] -= push * sign
+                            moved = True
+                    else:
+                        needed = min_dx
+                        shortfall = needed - abs(dx)
+                        if shortfall > 0:
+                            push = shortfall / 2 + 5
+                            sign = 1 if dx >= 0 else -1
+                            b["x"] += push * sign
+                            a["x"] -= push * sign
+                            moved = True
+
+        if not moved:
+            break
+
+    flowchart_data["nodes"] = nodes
+    return flowchart_data
+
+
 def build_excalidraw(flowchart_data: dict) -> dict:
     """
     Build a complete Excalidraw JSON structure from flowchart data.
@@ -280,6 +393,9 @@ def build_excalidraw(flowchart_data: dict) -> dict:
     Returns:
         Complete Excalidraw JSON dict ready to be saved as .excalidraw file.
     """
+    # Enforce minimum spacing between nodes
+    flowchart_data = _enforce_spacing(flowchart_data)
+
     elements = []
     node_id_to_element = {}  # maps our node id → excalidraw element
 

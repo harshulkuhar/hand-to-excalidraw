@@ -4,17 +4,26 @@ to extract structured flowchart data from hand-drawn images.
 """
 
 import base64
+import io
 import json
 import os
 import re
 from pathlib import Path
+
+from PIL import Image
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except ImportError:
+    pass  # HEIC support optional
 
 from dotenv import load_dotenv
 from huggingface_hub import InferenceClient
 
 load_dotenv()
 
-QWEN_MODEL = "Qwen/Qwen2.5-VL-7B-Instruct"
+# QWEN_MODEL = "Qwen/Qwen2.5-VL-7B-Instruct"
+QWEN_MODEL = "Qwen/Qwen3-VL-235B-A22B-Instruct"
 
 SYSTEM_PROMPT = """You are an expert at analyzing hand-drawn flowcharts and diagrams. 
 Given an image of a hand-drawn flowchart, you must extract ALL shapes, text, and connections into a precise structured JSON format.
@@ -25,8 +34,10 @@ Rules:
 3. Identify ALL arrows/connections between shapes, including any labels on them.
 4. Estimate the relative position (x, y) and size (width, height) of each shape.
    - Use a coordinate system where top-left is (0, 0).
-   - Estimate positions in pixels assuming an 800x600 canvas.
-   - Shapes should be spaced reasonably (at least 40px apart).
+   - Estimate positions in pixels assuming a 1200x900 canvas.
+   - IMPORTANT: Space shapes far apart. Minimum 120px gap between connected shapes.
+   - Shapes should NOT overlap. Leave plenty of room for arrows between them.
+   - Try to match the spatial layout from the original image (which shapes are on the left, right, top, bottom).
 5. Detect colors if visible (use CSS color names). Default to "#1e1e1e" for strokes and "transparent" for fills.
 6. Map shape types: 
    - Rectangles/squares → "rectangle"
@@ -65,11 +76,15 @@ Important:
 - Arrow from_id and to_id MUST reference valid node ids
 - Labels must capture the actual text from the image 
 - Positions should roughly match the spatial layout in the image
+- CRITICAL: Do NOT miss any arrows! Count all arrows in the image before responding.
+  - Text written near an arrow line (like "Yes", "No", "Registration", etc.) is an arrow LABEL, not a separate node.
+  - If you see a line/arrow from shape A to shape B with text "X" written near it, create an arrow with from_id=A, to_id=B, label="X".
+  - Every arrow drawn in the image MUST appear in the "arrows" array.
 - Return ONLY the JSON object, nothing else"""
 
 
 def _image_to_data_url(image_path: str) -> str:
-    """Convert a local image to a base64 data URL."""
+    """Convert a local image to a base64 data URL, converting unsupported formats."""
     path = Path(image_path)
     suffix = path.suffix.lower()
     mime_map = {
@@ -81,14 +96,31 @@ def _image_to_data_url(image_path: str) -> str:
         ".bmp": "image/bmp",
         ".heic": "image/heic",
     }
-    mime = mime_map.get(suffix, "image/jpeg")
-    data = path.read_bytes()
-    b64 = base64.b64encode(data).decode("utf-8")
-    return f"data:{mime};base64,{b64}"
+    content_type = mime_map.get(suffix, "image/jpeg")
+    image_bytes = path.read_bytes()
+    image_bytes, content_type = _ensure_jpeg(image_bytes, content_type)
+    b64 = base64.b64encode(image_bytes).decode("utf-8")
+    return f"data:{content_type};base64,{b64}"
+
+
+def _ensure_jpeg(image_bytes: bytes, content_type: str) -> tuple[bytes, str]:
+    """Resize and convert images to JPEG for the API (keeps payload small)."""
+    img = Image.open(io.BytesIO(image_bytes))
+    img = img.convert("RGB")
+
+    # Resize if larger than 1200px on any side
+    max_dim = 1200
+    if max(img.size) > max_dim:
+        img.thumbnail((max_dim, max_dim), Image.LANCZOS)
+
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=85)
+    return buf.getvalue(), "image/jpeg"
 
 
 def _image_bytes_to_data_url(image_bytes: bytes, content_type: str = "image/jpeg") -> str:
-    """Convert image bytes to a base64 data URL."""
+    """Convert image bytes to a base64 data URL, converting unsupported formats first."""
+    image_bytes, content_type = _ensure_jpeg(image_bytes, content_type)
     b64 = base64.b64encode(image_bytes).decode("utf-8")
     return f"data:{content_type};base64,{b64}"
 
