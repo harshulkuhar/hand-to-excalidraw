@@ -143,6 +143,17 @@ async def health():
 
 
 # Serve frontend static files (production build)
+class NoCacheStaticFiles(StaticFiles):
+    def is_not_modified(self, response_headers, request_headers) -> bool:
+        return False
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        if hasattr(response, 'headers') and getattr(response, 'media_type', None) == 'text/html':
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
+
 frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
 if frontend_dist.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
+    app.mount("/", NoCacheStaticFiles(directory=str(frontend_dist), html=True), name="frontend")
