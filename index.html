@@ -35,7 +35,12 @@
 </head>
 
 <body>
-    <iframe src="https://nonuu-hand2excal.hf.space?v=2" title="Hand2Excal App"></iframe>
+    <iframe id="excalidraw-frame" title="Hand2Excal App"></iframe>
+    <script>
+        // the query parameter dynamically busts the cache on every load
+        // so you don't have to manually update ?v=2, ?v=3 anymore
+        document.getElementById('excalidraw-frame').src = 'https://nonuu-hand2excal.hf.space?v=' + new Date().getTime();
+    </script>
 </body>
 
 </html>
