@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from .vision import extract_flowchart_from_bytes
+from .vision import extract_flowchart_from_bytes, extract_flowchart_from_text
 from .excalidraw_builder import build_excalidraw
 
 app = FastAPI(
@@ -74,6 +74,51 @@ async def convert_image(file: UploadFile = File(...)):
         log.info("🔧 Building Excalidraw file...")
         excalidraw_json = build_excalidraw(flowchart_data)
         log.info("✅ Conversion complete!")
+
+        return JSONResponse(content={
+            "success": True,
+            "excalidraw": excalidraw_json,
+            "metadata": {
+                "nodes_count": len(nodes),
+                "arrows_count": len(arrows),
+            },
+        })
+
+    except ValueError as e:
+        log.error(f"❌ Validation error: {e}")
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        log.error(f"❌ Conversion failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Conversion failed: {str(e)}")
+
+
+from pydantic import BaseModel
+
+class TextConvertRequest(BaseModel):
+    text: str
+
+@app.post("/api/convert-text")
+async def convert_text(request: TextConvertRequest):
+    """
+    Upload a text document/process flow, returns Excalidraw JSON.
+    """
+    if not request.text or not request.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty.")
+
+    log.info(f"📝 Received text for conversion ({len(request.text)} characters)")
+
+    try:
+        # Step 1: Extract flowchart data using Llama
+        log.info("🤖 Sending to LLM for text analysis...")
+        flowchart_data = extract_flowchart_from_text(request.text)
+        nodes = flowchart_data.get("nodes", [])
+        arrows = flowchart_data.get("arrows", [])
+        log.info(f"📐 Extracted: {len(nodes)} shapes, {len(arrows)} connections")
+        
+        # Step 2: Build Excalidraw JSON
+        log.info("🔧 Building Excalidraw file...")
+        excalidraw_json = build_excalidraw(flowchart_data)
+        log.info("✅ Text Conversion complete!")
 
         return JSONResponse(content={
             "success": True,

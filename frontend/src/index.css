@@ -309,6 +309,81 @@ body::before {
   color: var(--text-muted);
 }
 
+/* --- Text Input Zone --- */
+
+.text-input-card {
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem !important;
+  text-align: left !important;
+  cursor: default !important;
+}
+
+.text-input-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+}
+
+.text-input-area {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 1rem;
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 200px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.text-input-area:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+}
+
+.text-input-area::placeholder {
+  color: var(--text-muted);
+}
+
+/* --- Mode Switcher --- */
+.mode-switcher {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.mode-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 0.75rem 1.5rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+}
+
+.mode-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.mode-btn.active {
+  background: var(--accent-glow);
+  border-color: var(--accent-primary);
+  color: #fff;
+  box-shadow: 0 0 15px var(--accent-glow);
+}
+
 /* --- Preview --- */
 
 .preview-container {

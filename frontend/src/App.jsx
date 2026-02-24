@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import UploadZone from './components/UploadZone';
+import TextInputZone from './components/TextInputZone';
 import ResultPanel from './components/ResultPanel';
 
 const API_URL = import.meta.env.DEV
@@ -16,7 +17,7 @@ const STATES = {
 
 const PROCESSING_STEPS = [
   '🔍 Analyzing your flowchart...',
-  '🤖 Qwen2.5-VL is reading shapes & text...',
+  '🤖 Extracting shapes & text...',
   '📐 Detecting connections & arrows...',
   '🔧 Building Excalidraw elements...',
   '✨ Almost there...',
@@ -24,6 +25,7 @@ const PROCESSING_STEPS = [
 
 export default function App() {
   const [state, setState] = useState(STATES.IDLE);
+  const [inputMode, setInputMode] = useState('image'); // 'image' | 'text'
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
@@ -97,6 +99,47 @@ export default function App() {
     }
   }, [file]);
 
+  const handleTextConvert = useCallback(async (text) => {
+    setState(STATES.PROCESSING);
+    setProcessingStep(0);
+
+    const stepInterval = setInterval(() => {
+      setProcessingStep((prev) =>
+        prev < PROCESSING_STEPS.length - 1 ? prev + 1 : prev
+      );
+    }, 3000);
+
+    try {
+      const response = await fetch(`${API_URL}/api/convert-text`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      });
+
+      clearInterval(stepInterval);
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || `Server error (${response.status})`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setResult(data);
+        setState(STATES.DONE);
+      } else {
+        throw new Error('Conversion failed. Please try again.');
+      }
+    } catch (err) {
+      clearInterval(stepInterval);
+      setError(err.message || 'Something went wrong. Please try again.');
+      setState(STATES.ERROR);
+    }
+  }, []);
+
   const handleReset = useCallback(() => {
     if (preview) URL.revokeObjectURL(preview);
     setFile(null);
@@ -123,13 +166,34 @@ export default function App() {
       </header>
 
       <main className="app-main">
-        {/* IDLE — Show upload zone */}
+        {/* Mode Switcher */}
         {state === STATES.IDLE && (
+          <div className="mode-switcher">
+            <button
+              className={`mode-btn ${inputMode === 'image' ? 'active' : ''}`}
+              onClick={() => setInputMode('image')}
+            >
+              📷 Image
+            </button>
+            <button
+              className={`mode-btn ${inputMode === 'text' ? 'active' : ''}`}
+              onClick={() => setInputMode('text')}
+            >
+              📝 Text
+            </button>
+          </div>
+        )}
+
+        {/* IDLE — Show upload zone or text input based on mode */}
+        {state === STATES.IDLE && inputMode === 'image' && (
           <UploadZone onFileSelected={handleFileSelected} />
+        )}
+        {state === STATES.IDLE && inputMode === 'text' && (
+          <TextInputZone onTextSubmit={handleTextConvert} />
         )}
 
         {/* PREVIEW — Show image preview + convert button */}
-        {state === STATES.PREVIEW && file && (
+        {state === STATES.PREVIEW && inputMode === 'image' && file && (
           <div className="preview-container">
             <UploadZone onFileSelected={handleFileSelected} />
             <div className="preview-card" style={{ marginTop: '1rem' }}>
@@ -197,10 +261,7 @@ export default function App() {
       </main>
 
       <footer className="app-footer">
-        Qwen2.5-VL ·{' '}
-        <a href="https://excalidraw.com" target="_blank" rel="noopener">
-          Excalidraw
-        </a>
+        Powered by Excalidraw & OSS LLMs
       </footer>
     </div>
   );
